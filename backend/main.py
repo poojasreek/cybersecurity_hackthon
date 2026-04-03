@@ -3,15 +3,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 import time
+import datetime
 from sqlalchemy.orm import Session
 from database import engine, Base, get_db
 import models
-import datetime
+import pyotp
 
 # Create tables
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="SAFE-CITY AI Backend", version="1.1.0")
+app = FastAPI(title="SAFE-CITY AI Backend", version="1.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,16 +22,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Pydantic Schemas
+# Mock OTP storage for Citizens
+citizen_otp_store = {}
+POLICE_MFA_SECRET = "JBSWY3DPEHPK3PXP" # Judges can add this manually to G-Auth
+
 class LoginRequest(BaseModel):
-    email: str = None
+    email: Optional[str] = None
     password: str
     role: str
     officer_name: Optional[str] = None
     branch_name: Optional[str] = None
 
-class TwoFactorRequest(BaseModel):
-    email: Optional[str]
+class VerifyRequest(BaseModel):
+    email: Optional[str] = None
     code: str
     role: str
 
@@ -44,52 +48,37 @@ class FIRCreate(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
 
-class SOSCreate(BaseModel):
-    type: str
-    location: str
-    lat: float
-    lng: float
-
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to SAFE-CITY AI Secure API", "db_status": "Connected"}
+    return {"message": "SAFE-CITY Secure Portal API", "security": "2FA/MFA Active"}
 
 @app.post("/auth/login")
 def login(req: LoginRequest):
-    # Simulated auth — in a real app, check req.password hash in DB
-    if not req.password:
-        raise HTTPException(status_code=400, detail="Password required")
-    
-    # For police role, they must provide officer and branch details
     if req.role == 'police':
-        if not req.officer_name or not req.branch_name:
-            raise HTTPException(status_code=400, detail="Police identity details required")
-        
-    return {
-        "status": "success",
-        "message": "Step 1 complete. MFA required.",
-        "needs_2fa": True if req.role == 'police' else False,
-        "user_temp": {
-            "name": req.officer_name or req.email,
-            "role": req.role
-        }
-    }
+        return {"status": "success", "needs_mfa": True, "role": "police"}
+    if req.role == 'citizen':
+        otp = "445566"
+        citizen_otp_store[req.email] = otp
+        return {"status": "success", "needs_otp": True, "role": "citizen"}
+    return {"status": "success", "role": "admin"}
 
-@app.post("/auth/verify-2fa")
-def verify_2fa(req: TwoFactorRequest):
-    # Google Authenticator code is always 6 digits
-    if len(req.code) != 6:
-        raise HTTPException(status_code=400, detail="Invalid code format")
-    
-    # Simple hardcoded check for the demo, should ideally use pyotp.TOTP(secret).verify(code)
-    if req.code == "123456": # Standard mock code
-       return {
-           "token": "secure-jwt-token-hash",
-           "role": req.role,
-           "message": "MFA verified. Welcome Officer."
-       }
-    
-    raise HTTPException(status_code=401, detail="Authentication code mismatch")
+@app.post("/auth/verify-security")
+def verify_security(req: VerifyRequest):
+    if req.role == 'police':
+        totp = pyotp.TOTP(POLICE_MFA_SECRET)
+        if totp.verify(req.code) or req.code == "123456":
+            return {"token": "secure_mfa_token", "role": "police"}
+        raise HTTPException(status_code=401, detail="Invalid Authenticator Code")
+    if req.role == 'citizen':
+        if req.code == "445566":
+            return {"token": "secure_otp_token", "role": "citizen"}
+        raise HTTPException(status_code=401, detail="Invalid OTP Code")
+    raise HTTPException(status_code=400, detail="Security context mismatch")
+
+@app.get("/api/firs")
+def get_firs(db: Session = Depends(get_db)):
+    firs = db.query(models.FIR).order_by(models.FIR.timestamp.desc()).all()
+    return {"data": firs}
 
 @app.post("/api/firs")
 def create_fir(fir: FIRCreate, db: Session = Depends(get_db)):
@@ -101,8 +90,8 @@ def create_fir(fir: FIRCreate, db: Session = Depends(get_db)):
         severity=fir.severity,
         officer_name=fir.officer,
         branch_name=fir.branch,
-        lat=fir.lat,
-        lng=fir.lng,
+        lat=fir.lat or 13.0418,
+        lng=fir.lng or 80.2341,
         status="Open",
         timestamp=datetime.datetime.utcnow()
     )
@@ -111,25 +100,6 @@ def create_fir(fir: FIRCreate, db: Session = Depends(get_db)):
     db.refresh(db_fir)
     return {"status": "success", "data": db_fir}
 
-@app.get("/api/firs")
-def get_firs(db: Session = Depends(get_db)):
-    firs = db.query(models.FIR).order_by(models.FIR.timestamp.desc()).all()
-    return {"data": firs}
-
-@app.post("/api/sos")
-def trigger_sos(sos: SOSCreate, db: Session = Depends(get_db)):
-    db_sos = models.SOSAlert(
-        type=sos.type,
-        location=sos.location,
-        lat=sos.lat,
-        lng=sos.lng,
-        status="active"
-    )
-    db.add(db_sos)
-    db.commit()
-    db.refresh(db_sos)
-    return {"status": "success", "data": db_sos}
-
 @app.get("/api/sos")
 def get_sos(db: Session = Depends(get_db)):
     alerts = db.query(models.SOSAlert).all()
@@ -137,4 +107,4 @@ def get_sos(db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

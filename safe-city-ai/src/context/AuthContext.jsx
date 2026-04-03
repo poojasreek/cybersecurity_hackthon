@@ -6,7 +6,6 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Updated to communication with FastAPI backend
   const login = async (credentials) => {
     try {
       const response = await fetch('http://127.0.0.1:8000/auth/login', {
@@ -18,22 +17,22 @@ export function AuthProvider({ children }) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || 'Login failed');
       
-      return data; // Will have needs_2fa status
+      return data; // needs_mfa or needs_otp
     } catch (err) {
       throw err;
     }
   };
 
-  const verify2FA = async (verificationData) => {
+  const verifySecurity = async (verificationData) => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/auth/verify-2fa', {
+      const response = await fetch('http://127.0.0.1:8000/auth/verify-security', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(verificationData),
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || '2FA Verification failed');
+      if (!response.ok) throw new Error(data.detail || 'Verification failed');
 
       const userData = { email: verificationData.email, role: data.role, token: data.token };
       setUser(userData);
@@ -50,7 +49,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, verify2FA, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, login, verifySecurity, logout }}>
       {children}
     </AuthContext.Provider>
   );
