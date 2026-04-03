@@ -1,11 +1,10 @@
 fastapi
 uvicorn
-pydantic
 sqlalchemy
-asyncpg
-databases
-python-jose[cryptography]
-passlib[bcrypt]
+pydantic
+psycopg2-binary
+pyotp
+qrcode
 python-multipart
-web3
-python-socketio
+jose
+passlib

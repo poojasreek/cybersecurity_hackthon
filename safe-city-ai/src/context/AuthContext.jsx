@@ -6,27 +6,42 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const login = (email, password, role) => {
-    // Simulated auth — replace with Firebase Auth in production
-    const mockUsers = {
-      police: { name: 'SI Rajesh Kumar', email: 'police@safecity.ai', role: 'police', badge: 'TN-4521' },
-      citizen: { name: 'Poojasree', email: 'citizen@safecity.ai', role: 'citizen' },
-      admin: { name: 'Admin Officer', email: 'admin@safecity.ai', role: 'admin' },
-    };
+  // Updated to communication with FastAPI backend
+  const login = async (credentials) => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+      
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Login failed');
+      
+      return data; // Will have needs_2fa status
+    } catch (err) {
+      throw err;
+    }
+  };
 
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (email && password) {
-          const userData = mockUsers[role] || mockUsers.police;
-          userData.role = role;
-          setUser(userData);
-          setIsAuthenticated(true);
-          resolve(userData);
-        } else {
-          reject(new Error('Invalid credentials'));
-        }
-      }, 1200);
-    });
+  const verify2FA = async (verificationData) => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/auth/verify-2fa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(verificationData),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || '2FA Verification failed');
+
+      const userData = { email: verificationData.email, role: data.role, token: data.token };
+      setUser(userData);
+      setIsAuthenticated(true);
+      return data;
+    } catch (err) {
+      throw err;
+    }
   };
 
   const logout = () => {
@@ -35,7 +50,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, login, verify2FA, logout }}>
       {children}
     </AuthContext.Provider>
   );
