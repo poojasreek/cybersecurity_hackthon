@@ -1,6 +1,12 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean
 from database import Base
 import datetime
+# GeoAlchemy2 for PostGIS support
+try:
+    from geoalchemy2 import Geometry
+    HAS_POSTGIS = True
+except ImportError:
+    HAS_POSTGIS = False
 
 class FIR(Base):
     __tablename__ = "firs"
@@ -9,8 +15,15 @@ class FIR(Base):
     fir_id = Column(String, unique=True, index=True)
     crime_type = Column(String)
     location = Column(String)
+    
+    # Simple coordinates for general use
     lat = Column(Float, nullable=True)
     lng = Column(Float, nullable=True)
+    
+    # PostGIS Geospatial column (Point)
+    if HAS_POSTGIS:
+        geom = Column(Geometry(geometry_type='POINT', srid=4326), nullable=True)
+    
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
     status = Column(String, default="Open")
     severity = Column(String)
@@ -26,6 +39,11 @@ class SOSAlert(Base):
     location = Column(String)
     lat = Column(Float)
     lng = Column(Float)
+    
+    # PostGIS Geospatial column (Point)
+    if HAS_POSTGIS:
+        geom = Column(Geometry(geometry_type='POINT', srid=4326), nullable=True)
+        
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
     status = Column(String, default="active")
 
