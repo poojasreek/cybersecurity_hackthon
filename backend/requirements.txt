@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+asyncpg
+databases
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+web3
+python-socketio

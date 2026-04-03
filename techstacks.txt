@@ -1,0 +1,37 @@
+💻 Tech Stack
+
+Frontend (Web App)
+
+React.js → main frontend framework
+Material-UI / Chakra UI → prebuilt buttons, tables, modals, cards
+Leaflet.js / Mapbox GL JS → interactive hexagon maps, safe routes
+Chart.js / Recharts → crime trend visualization
+jsPDF → export PDF reports
+
+Authentication & Security
+
+Firebase Auth → OTP + Email/password login
+JWT → secure sessions
+2FA → police only (Google Authenticator / Authy API)
+Blockchain (Polygon testnet) → store FIR/SOS hashes for immutability
+AWS S3 / Google Cloud Storage → store images/videos
+
+Backend
+
+FastAPI → REST APIs for auth, FIR, SOS, patrol
+Web3.py → communicate with blockchain
+Socket.io + FCM → real-time SOS alerts, patrol tracking
+PostgreSQL + PostGIS → structured + geospatial queries
+Redis (optional) → caching for high-frequency SOS events
+
+AI/ML (optional for risk scoring)
+
+Logistic Regression, Decision Trees / Random Forest, XGBoost / LightGBM
+SHAP → explainable AI for risk scores
+
+Deployment
+
+Frontend → Vercel / Netlify
+Backend → Railway / Render / Fly.io
+Database → Supabase / Railway PostgreSQL
+Blockchain → Polygon Mumbai testnet
